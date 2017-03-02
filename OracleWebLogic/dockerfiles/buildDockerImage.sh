@@ -12,7 +12,7 @@
 usage() {
 cat << EOF
 
-Usage: buildDockerImage.sh -v [version] [-d | -g | -i] [-s]
+Usage: buildDockerImage.sh -v [version] [-d | -g | -i] [-s] [-c]
 Builds a Docker Image for Oracle WebLogic.
   
 Parameters:
@@ -21,9 +21,10 @@ Parameters:
    -d: creates image based on 'developer' distribution
    -g: creates image based on 'generic' distribution
    -i: creates image based on 'infrastructure' distribution
+   -c: enables Docker image layer cache during build
    -s: skips the MD5 check of packages
 
-* use either -d or -g, obligatory.
+* select one distribution only: -d, -g, or -i
 
 LICENSE CDDL 1.0 + GPL 2.0
 
@@ -52,7 +53,8 @@ GENERIC=0
 INFRASTRUCTURE=0
 VERSION="12.2.1"
 SKIPMD5=0
-while getopts "hsdgiv:" optname; do
+NOCACHE=true
+while getopts "hcsdgiv:" optname; do
   case "$optname" in
     "h")
       usage
@@ -71,6 +73,9 @@ while getopts "hsdgiv:" optname; do
       ;;
     "v")
       VERSION="$OPTARG"
+      ;;
+    "c")
+      NOCACHE=false
       ;;
     *)
     # Should not occur
@@ -107,21 +112,53 @@ fi
 
 echo "====================="
 
+# Proxy settings
+PROXY_SETTINGS=""
+if [ "${http_proxy}" != "" ]; then
+  PROXY_SETTINGS="$PROXY_SETTINGS --build-arg http_proxy=${http_proxy}"
+fi
+
+if [ "${https_proxy}" != "" ]; then
+  PROXY_SETTINGS="$PROXY_SETTINGS --build-arg https_proxy=${https_proxy}"
+fi
+
+if [ "${ftp_proxy}" != "" ]; then
+  PROXY_SETTINGS="$PROXY_SETTINGS --build-arg ftp_proxy=${ftp_proxy}"
+fi
+
+if [ "${no_proxy}" != "" ]; then
+  PROXY_SETTINGS="$PROXY_SETTINGS --build-arg no_proxy=${no_proxy}"
+fi
+
+if [ "$PROXY_SETTINGS" != "" ]; then
+  echo "Proxy settings were found and will be used during build."
+fi
+
 # ################## #
 # BUILDING THE IMAGE #
 # ################## #
 echo "Building image '$IMAGE_NAME' ..."
 
 # BUILD THE IMAGE (replace all environment variables)
-docker build --force-rm=true --no-cache=true -t $IMAGE_NAME -f Dockerfile.$DISTRIBUTION . || {
+BUILD_START=$(date '+%s')
+docker build --force-rm=$NOCACHE --no-cache=$NOCACHE $PROXY_SETTINGS -t $IMAGE_NAME -f Dockerfile.$DISTRIBUTION . || {
   echo "There was an error building the image."
   exit 1
 }
+BUILD_END=$(date '+%s')
+BUILD_ELAPSED=`expr $BUILD_END - $BUILD_START`
 
 echo ""
 
 if [ $? -eq 0 ]; then
-  echo "WebLogic Docker Image for '$DISTRIBUTION' version $VERSION is ready to be extended: $IMAGE_NAME"
+cat << EOF
+  WebLogic Docker Image for '$DISTRIBUTION' version $VERSION is ready to be extended: 
+    
+    --> $IMAGE_NAME
+
+  Build completed in $BUILD_ELAPSED seconds.
+
+EOF
 else
   echo "WebLogic Docker Image was NOT successfully created. Check the output and correct any reported problems with the docker build operation."
 fi

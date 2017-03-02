@@ -13,7 +13,7 @@
 # -----------------------
 # Put all downloaded files in the same directory as this Dockerfile
 # Run: 
-#      $ sudo docker build -t 1221-domain .
+#      $ sudo docker build -t 1221-domain --build-arg ADMIN_PASSWORD=welcome1 .
 #
 # Pull base image
 # ---------------
@@ -23,33 +23,48 @@ FROM oracle/weblogic:12.2.1-developer
 # ----------
 MAINTAINER Bruno Borges <bruno.borges@oracle.com>
 
-# WLS Configuration
-# ----------------------------------------------------------
-ENV ADMIN_PASSWORD="welcome1" \
-    ADMIN_PORT=8001 \
-    NM_PORT=5556 \
-    MS_PORT=7001 \
-    CLUSTER_NAME="Cluster-Docker" \
-    PATH=$PATH:/u01/oracle/wlserver/common/bin:/u01/oracle/user_projects/domains/base_domain/bin:/u01/oracle
+# WLS Configuration (editable during build time)
+# ------------------------------
+ARG ADMIN_PASSWORD
+ARG DOMAIN_NAME
+ARG ADMIN_PORT
+ARG CLUSTER_NAME
+ARG DEBUG_FLAG
+ARG PRODUCTION_MODE
+
+# WLS Configuration (editable during runtime)
+# ---------------------------
+ENV ADMIN_HOST="wlsadmin" \
+    NM_PORT="5556" \
+    MS_PORT="7001" \
+    DEBUG_PORT="8453" \
+    CONFIG_JVM_ARGS="-Dweblogic.security.SSL.ignoreHostnameVerification=true"
+
+# WLS Configuration (persisted. do not change during runtime)
+# -----------------------------------------------------------
+ENV DOMAIN_NAME="${DOMAIN_NAME:-base_domain}" \
+    DOMAIN_HOME=/u01/oracle/user_projects/domains/${DOMAIN_NAME:-base_domain} \
+    ADMIN_PORT="${ADMIN_PORT:-8001}" \
+    CLUSTER_NAME="${CLUSTER_NAME:-DockerCluster}" \
+    debugFlag="${DEBUG_FLAG:-false}" \
+    PRODUCTION_MODE="${PRODUCTION_MODE:-prod}" \
+    PATH=$PATH:/u01/oracle/oracle_common/common/bin:/u01/oracle/wlserver/common/bin:/u01/oracle/user_projects/domains/${DOMAIN_NAME:-base_domain}/bin:/u01/oracle
 
 # Add files required to build this image
 USER oracle
 COPY container-scripts/* /u01/oracle/
 
 # Configuration of WLS Domain
-WORKDIR /u01/oracle
-RUN /u01/oracle/wlserver/common/bin/wlst.sh -skipWLSModuleScanning /u01/oracle/create-wls-domain.py && \
-    mkdir -p /u01/oracle/user_projects/domains/base_domain/servers/AdminServer/security && \
-    echo "username=weblogic" > /u01/oracle/user_projects/domains/base_domain/servers/AdminServer/security/boot.properties && \ 
-    echo "password=$ADMIN_PASSWORD" >> /u01/oracle/user_projects/domains/base_domain/servers/AdminServer/security/boot.properties && \
-    echo ". /u01/oracle/user_projects/domains/base_domain/bin/setDomainEnv.sh" >> /u01/oracle/.bashrc && \ 
-    echo "export PATH=$PATH:/u01/oracle/wlserver/common/bin:/u01/oracle/user_projects/domains/base_domain/bin" >> /u01/oracle/.bashrc
+RUN /u01/oracle/wlst /u01/oracle/create-wls-domain.py && \
+    mkdir -p /u01/oracle/user_projects/domains/$DOMAIN_NAME/servers/AdminServer/security && \
+    echo "username=weblogic" > /u01/oracle/user_projects/domains/$DOMAIN_NAME/servers/AdminServer/security/boot.properties && \
+    echo "password=$ADMIN_PASSWORD" >> /u01/oracle/user_projects/domains/$DOMAIN_NAME/servers/AdminServer/security/boot.properties && \
+    echo ". /u01/oracle/user_projects/domains/$DOMAIN_NAME/bin/setDomainEnv.sh" >> /u01/oracle/.bashrc 
 
-# Expose Node Manager default port, and also default http/https ports for admin console
-EXPOSE $NM_PORT $ADMIN_PORT $MS_PORT
+# Expose Node Manager default port, and also default for admin and managed server 
+EXPOSE $NM_PORT $ADMIN_PORT $MS_PORT $DEBUG_PORT
 
-# Final setup
-WORKDIR /u01/oracle
+WORKDIR $DOMAIN_HOME
 
 # Define default command to start bash. 
 CMD ["startWebLogic.sh"]

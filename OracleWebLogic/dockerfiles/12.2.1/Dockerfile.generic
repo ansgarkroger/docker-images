@@ -11,14 +11,14 @@
 # (1) fmw_12.2.1.0.0_wls_Disk1_1of1.zip 
 #     Download the Generic installer from http://www.oracle.com/technetwork/middleware/weblogic/downloads/wls-for-dev-1703574.html 
 #
-# (2) server-jre-8u65-linux-x64.gz
+# (2) server-jre-8uXX-linux-x64.tar.gz
 #     Download from http://www.oracle.com/technetwork/java/javase/downloads/server-jre8-downloads-2133154.html 
 #
 # HOW TO BUILD THIS IMAGE
 # -----------------------
 # Put all downloaded files in the same directory as this Dockerfile
 # Run: 
-#      $ docker build -t oracle/weblogic:12.2.1-generic . 
+#      $ docker build -f Dockerfile.generic -t oracle/weblogic:12.2.1-generic . 
 #
 # IMPORTANT
 # ---------
@@ -36,7 +36,7 @@
 #
 # Pull base image
 # ---------------
-FROM oraclelinux:latest
+FROM oracle/serverjre:8
 
 # Maintainer
 # ----------
@@ -44,40 +44,31 @@ MAINTAINER Bruno Borges <bruno.borges@oracle.com>
 
 # Environment variables required for this build (do NOT change)
 # -------------------------------------------------------------
-ENV JAVA_PKG=server-jre-8u65-linux-x64.gz \
-    JAVA_FOLDER=jdk1.8.0_65 \
-    FMW_PKG=fmw_12.2.1.0.0_wls_Disk1_1of1.zip \
+ENV FMW_PKG=fmw_12.2.1.0.0_wls_Disk1_1of1.zip \
     FMW_JAR=fmw_12.2.1.0.0_wls.jar \
     ORACLE_HOME=/u01/oracle \
-    JAVA_HOME=/usr/java/default \
-    CONFIG_JVM_ARGS="-Djava.security.egd=file:/dev/./urandom" \
-    _JAVA_OPTIONS="-XX:+PrintCommandLineFlags -Djava.security.egd=file:/dev/./urandom" \
-    JAVA_OPTIONS=$_JAVA_OPTIONS \
+    USER_MEM_ARGS="-Djava.security.egd=file:/dev/./urandom" \
     PATH=$PATH:/usr/java/default/bin:/u01/oracle/oracle_common/common/bin
 
 # Copy packages
 # -------------
 COPY $FMW_PKG install.file oraInst.loc /u01/
-ADD $JAVA_PKG /usr/java/
 
 # Setup filesystem and oracle user
 # Install and configure Oracle JDK
 # Adjust file permissions, go to /u01 as user 'oracle' to proceed with WLS installation
 # ------------------------------------------------------------
-RUN yum install -y unzip && \
-    chmod a+xr /u01 && \
+RUN chmod a+xr /u01 && \
     useradd -b /u01 -m -s /bin/bash oracle && \
     echo oracle:oracle | chpasswd && \
-    unzip /u01/$FMW_PKG -d /u01 && \
+    yum -y install util-linux && yum clean all && \
+    cd /u01 && $JAVA_HOME/bin/jar xf /u01/$FMW_PKG && cd - && \
+    su -c "$JAVA_HOME/bin/java -jar /u01/$FMW_JAR -silent -responseFile /u01/install.file -invPtrLoc /u01/oraInst.loc -jreLoc $JAVA_HOME -ignoreSysPrereqs -force -novalidation ORACLE_HOME=$ORACLE_HOME INSTALL_TYPE=\"WebLogic Server\"" - oracle && \
     chown oracle:oracle -R /u01 && \
-    ln -s /usr/java/$JAVA_FOLDER /usr/java/default && \
-    ln -s /usr/java/$JAVA_FOLDER /usr/java/latest && \
-    su -c "$JAVA_HOME/bin/java -jar /u01/$FMW_JAR -silent -responseFile /u01/install.file -invPtrLoc /u01/oraInst.loc -jreLoc $JAVA_HOME -ignoreSysPrereqs -force ORACLE_HOME=$ORACLE_HOME INSTALL_TYPE=\"WebLogic Server\"" - oracle && \
-    rm /u01/$FMW_JAR /u01/$FMW_PKG /u01/oraInst.loc /u01/install.file && \
-    yum -y remove unzip && rm -rf /var/cache/yum/*
+    rm /u01/$FMW_JAR /u01/$FMW_PKG /u01/oraInst.loc /u01/install.file
 
 USER oracle
-WORKDIR /u01/oracle
+WORKDIR $ORACLE_HOME 
 
 # Define default command to start bash. 
 CMD ["bash"]
