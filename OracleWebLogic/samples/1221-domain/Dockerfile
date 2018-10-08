@@ -1,18 +1,18 @@
-# LICENSE CDDL 1.0 + GPL 2.0
+# LICENSE UPL 1.0
 #
-# Copyright (c) 2014-2015 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2014-2018 Oracle and/or its affiliates. All rights reserved.
 #
 # ORACLE DOCKERFILES PROJECT
 # --------------------------
 # This Dockerfile extends the Oracle WebLogic image by creating a sample domain.
 #
-# Util scripts are copied into the image enabling users to plug NodeManager 
+# Util scripts are copied into the image enabling users to plug NodeManager
 # automatically into the AdminServer running on another container.
 #
 # HOW TO BUILD THIS IMAGE
 # -----------------------
 # Put all downloaded files in the same directory as this Dockerfile
-# Run: 
+# Run:
 #      $ sudo docker build -t 1221-domain --build-arg ADMIN_PASSWORD=welcome1 .
 #
 # Pull base image
@@ -26,6 +26,7 @@ MAINTAINER Bruno Borges <bruno.borges@oracle.com>
 # WLS Configuration (editable during build time)
 # ------------------------------
 ARG ADMIN_PASSWORD
+ARG ADMIN_NAME
 ARG DOMAIN_NAME
 ARG ADMIN_PORT
 ARG CLUSTER_NAME
@@ -36,7 +37,7 @@ ARG PRODUCTION_MODE
 # ---------------------------
 ENV ADMIN_HOST="wlsadmin" \
     NM_PORT="5556" \
-    MS_PORT="7001" \
+    MS_PORT="7002" \
     DEBUG_PORT="8453" \
     CONFIG_JVM_ARGS="-Dweblogic.security.SSL.ignoreHostnameVerification=true"
 
@@ -44,7 +45,8 @@ ENV ADMIN_HOST="wlsadmin" \
 # -----------------------------------------------------------
 ENV DOMAIN_NAME="${DOMAIN_NAME:-base_domain}" \
     DOMAIN_HOME=/u01/oracle/user_projects/domains/${DOMAIN_NAME:-base_domain} \
-    ADMIN_PORT="${ADMIN_PORT:-8001}" \
+    ADMIN_NAME="${ADMIN_NAME:-AdminServer}" \
+    ADMIN_PORT="${ADMIN_PORT:-7001}" \
     CLUSTER_NAME="${CLUSTER_NAME:-DockerCluster}" \
     debugFlag="${DEBUG_FLAG:-false}" \
     PRODUCTION_MODE="${PRODUCTION_MODE:-prod}" \
@@ -59,12 +61,12 @@ RUN /u01/oracle/wlst /u01/oracle/create-wls-domain.py && \
     mkdir -p /u01/oracle/user_projects/domains/$DOMAIN_NAME/servers/AdminServer/security && \
     echo "username=weblogic" > /u01/oracle/user_projects/domains/$DOMAIN_NAME/servers/AdminServer/security/boot.properties && \
     echo "password=$ADMIN_PASSWORD" >> /u01/oracle/user_projects/domains/$DOMAIN_NAME/servers/AdminServer/security/boot.properties && \
-    echo ". /u01/oracle/user_projects/domains/$DOMAIN_NAME/bin/setDomainEnv.sh" >> /u01/oracle/.bashrc 
+    echo ". /u01/oracle/user_projects/domains/$DOMAIN_NAME/bin/setDomainEnv.sh" >> /u01/oracle/.bashrc
 
-# Expose Node Manager default port, and also default for admin and managed server 
+# Expose Node Manager default port, and also default for admin and managed server
 EXPOSE $NM_PORT $ADMIN_PORT $MS_PORT $DEBUG_PORT
 
 WORKDIR $DOMAIN_HOME
 
-# Define default command to start bash. 
+# Define default command to start bash.
 CMD ["startWebLogic.sh"]

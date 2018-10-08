@@ -1,4 +1,4 @@
-# Copyright (c) 2015 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
 #
 # WLST Offline for deploying an application under APP_NAME packaged in APP_PKG_FILE located in APP_PKG_LOCATION
 # It will read the domain under DOMAIN_HOME by default
@@ -8,18 +8,42 @@
 #
 import os
 
-# Deployment Information 
+# Deployment Information
 domainname = os.environ.get('DOMAIN_NAME', 'base_domain')
+admin_name = os.environ.get('ADMIN_NAME', 'AdminServer')
 domainhome = os.environ.get('DOMAIN_HOME', '/u01/oracle/user_projects/domains/' + domainname)
+
+print('admin_name  : [%s]' % admin_name);
 
 # Read Domain in Offline Mode
 # ===========================
 readDomain(domainhome)
 
+
+#Create a Persistent Store
+#================================================
+cd('/')
+myfilestore=create('DockerFileStore', 'FileStore')
+
+cd('/FileStores/DockerFileStore')
+myfilestore.setDirectory('/u01/oracle/user_projects/domains/base_domain/FileStore')
+
+cd('/')
+assign('FileStore', 'DockerFileStore', 'Target', admin_name)
+
+
 # Create a JMS Server
 # ===================
 cd('/')
-create('DockerJMSServer', 'JMSServer')
+jmsserver=create('DockerJMSServer', 'JMSServer')
+print('Create JMSServer : [%s]' % 'DockerJMSServer')
+
+cd('/JMSServers/DockerJMSServer')
+set('PersistentStore', 'DockerFileStore')
+print('FileStore_name     : [%s]' % getMBean('/FileStores/DockerFileStore'))
+
+cd('/')
+assign('JMSServer', 'DockerJMSServer', 'Target', admin_name)
 
 # Create a JMS System resource
 # ============================
@@ -36,10 +60,9 @@ myq.setSubDeploymentName('DockerQueueSubDeployment')
 cd('/JMSSystemResource/DockerJMSSystemResource')
 create('DockerQueueSubDeployment', 'SubDeployment')
 
-# Target resources to the servers 
+# Target resources to the servers
 # ===============================
 cd('/')
-assign('JMSServer', 'DockerJMSServer', 'Target', 'AdminServer')
 assign('JMSSystemResource.SubDeployment', 'DockerJMSSystemResource.DockerQueueSubDeployment', 'Target', 'DockerJMSServer')
 
 # Update Domain, Close It, Exit

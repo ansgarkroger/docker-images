@@ -1,7 +1,7 @@
-# LICENSE CDDL 1.0 + GPL 2.0
+# LICENSE UPL 1.0
 #
-# Copyright (c) 2015 Oracle and/or its affiliates. All rights reserved.
-# 
+# Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
+#
 # ORACLE DOCKERFILES PROJECT
 # --------------------------
 # This Dockerfile extends the Oracle WebLogic sample 1221-domain
@@ -11,17 +11,17 @@
 #
 # HOW TO BUILD THIS IMAGE
 # -----------------------
-# Run: 
+# Run:
 #      $ docker build -t 1221-domain-with-resources .
 #
 
 # Pull base image
 # ---------------
-FROM 1221-domain 
+FROM 1221-domain
 
 # Maintainer
 # ----------
-MAINTAINER Bruno Borges <bruno.borges@oracle.com>
+MAINTAINER Monica Riccelli <monica.riccelli@oracle.com>
 
 # Copy files and deploy application in WLST Offline mode
 COPY container-scripts/* /u01/oracle/
