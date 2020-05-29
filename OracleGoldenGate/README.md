@@ -18,6 +18,7 @@ Sample Docker build files to provide an installation of Oracle GoldenGate for De
   * [Administrative Account Password for Microservices Architecture](#administrative-account-password-for-microservices-architecture)
   * [Running GGSCI in an OGG Standard Edition Docker container](#running-ggsci-in-an-ogg-standard-edition-docker-container)
   * [Running Admin Client in an OGG Microservices Architecture Docker container](#running-admin-client-in-an-ogg-microservices-architecture-docker-container)
+* [Additional Utilities](#additional-utilities)
 * [Known issues](#known-issues)
 * [License](#license)
 * [Copyright](#copyright)
@@ -28,12 +29,20 @@ This project provides a Dockerfile tested with:
 - Oracle GoldenGate 12.2.0.1.1 for Oracle
 - Oracle GoldenGate 12.3.0.1.4 for Oracle
 - Oracle GoldenGate 12.3.0.1.4 Microservices for Oracle
+- Oracle GoldenGate 18.1.0.0.0 for Oracle
+- Oracle GoldenGate 18.1.0.0.0 Microservices for Oracle
+- Oracle GoldenGate 19.1.0.0.2 for Oracle
+- Oracle GoldenGate 19.1.0.0.2 Microservices for Oracle
 
 To build the images, use the [dockerBuild.sh](dockerBuild.sh) script or follow the instructions for manually building an image.
 
 **IMPORTANT:** To create images for Oracle GoldenGate on Docker, you must use Docker version 17.05.0 or later. You can check the version of Docker on your system with the `docker version` command.
 
 **IMPORTANT:** You must download the installation binaries of Oracle GoldenGate. You only need to provide the binaries for the version you plan to install. The binaries can be downloaded from the [Oracle Technology Network](http://www.oracle.com/technetwork/middleware/goldengate/downloads/index.html). Do not uncompress the Oracle GoldenGate ZIP file. The `dockerBuild.sh` script will handle that for you. You also must have Internet connectivity when building the Docker image for the package manager to perform additional software installations.
+
+**IMPORTANT:** The Docker Base Image should be prepared before you start creating Oracle GoldenGate Docker Image. Please refer the section [Changing the Base Image](https://github.com/oracle/docker-images/tree/master/OracleGoldenGate#changing-the-base-image) regarding the base images.
+
+All shell commands in this document assume the usage of Bash shell.
 
 For more information about Oracle GoldenGate please see the [Oracle GoldenGate 12c On-line Documentation](https://docs.oracle.com/goldengate/c1230/gg-winux/index.html).
 
@@ -169,6 +178,8 @@ To run your Oracle GoldenGate Docker image use a **docker run** command like thi
         -e OGG_ADMIN=<admin user name> \
         -e OGG_ADMIN_PWD=<admin password> \
         -e OGG_DEPLOYMENT=<deployment name for Microservices Architecture> \
+        -e PORT_BASE=11000 \
+        -p 8443:443 \
         -v <host mount point>:<container-mount-point> ... \
         <image name>
 
@@ -180,10 +191,12 @@ Parameters:
 - `-e OGG_ADMIN`      - The name of the administrative account to create for Microservices Architecture (default: `oggadmin`)
 - `-e OGG_ADMIN_PWD`  - The password for the Microservices Architecture administrative account (default: auto generated)
 - `-e OGG_DEPLOYMENT` - The name of the deployment for Microservices Architecture (default: `Local`)
+- `-e PORT_BASE`      - The starting port number used by OGG services (default: 7809 for Classic Edition, 9100 for Microservices Edition)
 - `<image name>`      - The Docker image name created using **Option 1** or **Option 2**
 
 **NOTE:** Only the `OGG_SCHEMA` environment variable is used by Oracle GoldenGate Standard Edition containers. The other environment variables are used by the Microservices Architecture.
 
+### Volumes
 Mount points for Oracle GoldenGate Standard Edition are located in the container under the `/u01/app/ogg/` directory. For example:
 
 - `/u01/app/ogg/dirprm` - The parameter file directory
@@ -193,6 +206,33 @@ For the Microservices Architecture, Oracle GoldenGate data is located under the 
 
 - `/u02/ogg/Local/etc/conf`     - Configuration files for the 'Local' deployment
 - `/u02/ogg/Local/var/lib/data` - Trail files for the 'Local' deployment
+
+### Ports
+
+Depending on the OGG Edition, the container will expose one or more ports starting at
+`PORT_BASE`. For the Microservices Edition, the container will also expose a Load Balancer on
+port 443. To publish the Manager port from a Classic Edition container from the Docker host, use the
+`--publish` (`-p`) option for `docker run`. For example:
+
+    -p 7809:7809
+
+For a Microservices Edition container, there are two options.
+
+1. Publish the port of the embedded load balancer to access all the microservices from a single port (preferred)
+
+    ```
+    -p 8443:443
+    ```
+
+2. Publish the ports from individual OGG Microservices:
+
+    ```
+    -p 9100:9100   # Service Manager
+    -p 9101:9101   # Administration Server
+    -p 9102:9102   # Distribution Server
+    -p 9103:9103   # Receiver Server
+    -p 9104:9104   # Performance Metrics Server
+    ```
 
 ### SSL Certificate for Microservices Architecture
 When the Oracle GoldenGate Docker image is created for Microservices Architecture, a dummy SSL certificate is generated for the OGG Web UI. Your own SSL certificate can be used instead of the dummy certificate like this:
@@ -248,6 +288,9 @@ The **Admin Client** utility can be run in the OGG container with this command:
     $ docker exec -ti --user oracle <container name> adminclient
 
 **Admin Client** is only available in containers created with the Microservices Architecture.
+
+## Additional Utilities
+Additional utilities, installed to the Docker Image at `/usr/local/bin`, can be found in the [bin](bin) directory.
 
 ## Known issues
 None
